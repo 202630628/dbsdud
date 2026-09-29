@@ -1,0 +1,743 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>오늘의 메뉴 추천</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts (Noto Sans KR) -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        pink: {
+                            50: '#fdf2f8',
+                            100: '#fce7f3',
+                            200: '#fbcfe8',
+                            300: '#f9a8d4',
+                            400: '#f472b6',
+                            500: '#ec4899',
+                            600: '#db2777',
+                            700: '#be185d',
+                            800: '#9d174d',
+                            900: '#831843',
+                        }
+                    },
+                    fontFamily: {
+                        sans: ['Noto Sans KR', 'sans-serif'],
+                    }
+                }
+            }
+        }
+    </script>
+    
+    <style>
+        body {
+            font-family: 'Noto Sans KR', sans-serif;
+            background: linear-gradient(135deg, #fce7f3 0%, #fbcfe8 50%, #f472b6 100%);
+            min-height: 100vh;
+        }
+
+        .glass-card {
+            background: rgba(255, 255, 255, 0.82);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.7);
+            box-shadow: 0 20px 40px rgba(236, 72, 153, 0.12);
+        }
+
+        .glass-btn {
+            background: rgba(255, 255, 255, 0.85);
+            backdrop-filter: blur(8px);
+            border: 1px solid rgba(244, 114, 182, 0.3);
+            transition: all 0.2s ease;
+        }
+
+        .glass-btn:hover {
+            background: rgba(253, 242, 248, 0.95);
+            border-color: #ec4899;
+            transform: translateY(-2px);
+        }
+
+        .chip-selected {
+            background: linear-gradient(135deg, #ec4899 0%, #db2777 100%) !important;
+            color: #ffffff !important;
+            border-color: transparent !important;
+            box-shadow: 0 4px 12px rgba(236, 72, 153, 0.35);
+        }
+
+        /* Custom Slider Styling */
+        input[type=range] {
+            -webkit-appearance: none;
+            width: 100%;
+            background: transparent;
+        }
+        input[type=range]:focus {
+            outline: none;
+        }
+        input[type=range]::-webkit-slider-runnable-track {
+            width: 100%;
+            height: 12px;
+            cursor: pointer;
+            background: #fbcfe8;
+            border-radius: 999px;
+            border: 1px solid rgba(244, 114, 182, 0.4);
+        }
+        input[type=range]::-webkit-slider-thumb {
+            height: 28px;
+            width: 28px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #f472b6 0%, #ec4899 100%);
+            cursor: pointer;
+            -webkit-appearance: none;
+            margin-top: -8px;
+            box-shadow: 0 4px 10px rgba(236, 72, 153, 0.4);
+            border: 2px solid #ffffff;
+            transition: transform 0.15s ease;
+        }
+        input[type=range]::-webkit-slider-thumb:hover {
+            transform: scale(1.15);
+        }
+
+        @keyframes float {
+            0%, 100% { transform: translateY(0px); }
+            50% { transform: translateY(-8px); }
+        }
+        .float-anim {
+            animation: float 3s ease-in-out infinite;
+        }
+
+        @keyframes radar-sweep {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        .radar-line {
+            animation: radar-sweep 2s linear infinite;
+            transform-origin: bottom right;
+        }
+    </style>
+</head>
+<body class="flex items-center justify-center p-3 sm:p-6 min-h-screen text-slate-800">
+
+    <!-- Toast Notification -->
+    <div id="toast" class="fixed top-5 left-1/2 -translate-x-1/2 z-50 transform -translate-y-20 opacity-0 transition-all duration-300 pointer-events-none">
+        <div class="bg-slate-900/90 backdrop-blur-md text-white px-6 py-3 rounded-full shadow-2xl flex items-center space-x-3 text-sm font-medium border border-pink-500/30">
+            <i id="toast-icon" class="fa-solid fa-circle-check text-pink-400 text-lg"></i>
+            <span id="toast-msg">메시지 내용</span>
+        </div>
+    </div>
+
+    <!-- Main Application Container -->
+    <main class="w-full max-w-xl glass-card rounded-3xl p-6 sm:p-10 relative overflow-hidden my-auto border border-white/80">
+        
+        <section id="step-cover" class="text-center py-6 sm:py-10 flex flex-col items-center">
+            <div class="w-24 h-24 sm:w-28 sm:h-28 bg-pink-100/80 rounded-full flex items-center justify-center mb-6 shadow-inner text-pink-500 float-anim border border-pink-200">
+                <i class="fa-solid fa-utensils text-4xl sm:text-5xl"></i>
+            </div>
+            
+            <span class="inline-block px-4 py-1.5 bg-pink-500/10 text-pink-600 rounded-full text-xs sm:text-sm font-semibold mb-3 border border-pink-300/40">
+                ✨ AI 맞춤형 메뉴 추천
+            </span>
+
+            <h1 class="text-3xl sm:text-4xl font-black text-slate-800 tracking-tight mb-4">
+                오늘의 <span class="text-transparent bg-clip-text bg-gradient-to-r from-pink-500 to-rose-600">메뉴 추천</span>
+            </h1>
+
+            <p class="text-slate-600 text-sm sm:text-base max-w-md mx-auto leading-relaxed mb-8">
+                현재 포화도, 입맛, 예산 조건에 맞춰 고민 없이 오늘 먹을 완벽한 음식을 찾아드립니다!
+            </p>
+
+            <button onclick="goToStep(1)" class="w-full sm:w-auto px-10 py-4 bg-gradient-to-r from-pink-500 to-pink-600 hover:from-pink-600 hover:to-pink-700 text-white font-bold text-lg rounded-2xl shadow-lg shadow-pink-500/30 hover:shadow-pink-500/50 transition-all duration-300 transform hover:-translate-y-0.5 active:translate-y-0 flex items-center justify-center space-x-2">
+                <span>추천 시작하기</span>
+                <i class="fa-solid fa-arrow-right text-sm"></i>
+            </button>
+        </section>
+
+        <section id="step-1" class="hidden">
+            <div class="mb-8">
+                <div class="flex justify-between text-xs font-semibold text-pink-600 mb-2">
+                    <span>STEP 01</span>
+                    <span>1 / 3</span>
+                </div>
+                <div class="w-full bg-pink-100 rounded-full h-2">
+                    <div class="bg-gradient-to-r from-pink-400 to-pink-600 h-2 rounded-full w-1/3 transition-all duration-300"></div>
+                </div>
+            </div>
+
+            <h2 class="text-2xl font-bold text-slate-800 mb-2">언제, 얼마나 배고프신가요?</h2>
+            <p class="text-slate-500 text-sm mb-6">식사 시간대와 배의 포화도를 설정해주세요.</p>
+
+            <!-- Meal Time Options -->
+            <div class="mb-7">
+                <label class="block text-sm font-bold text-slate-700 mb-3">
+                    <i class="fa-regular fa-clock text-pink-500 mr-1.5"></i>식사 시간대
+                </label>
+                <div class="grid grid-cols-2 sm:grid-cols-4 gap-2.5" id="meal-time-group">
+                    <button onclick="selectMealTime(this, '아침')" class="meal-chip glass-btn py-3 px-3 rounded-xl text-sm font-medium text-slate-700 flex items-center justify-center space-x-1.5">
+                        <span>🌅 아침</span>
+                    </button>
+                    <button onclick="selectMealTime(this, '점심')" class="meal-chip glass-btn py-3 px-3 rounded-xl text-sm font-medium text-slate-700 flex items-center justify-center space-x-1.5 chip-selected">
+                        <span>☀️ 점심</span>
+                    </button>
+                    <button onclick="selectMealTime(this, '저녁')" class="meal-chip glass-btn py-3 px-3 rounded-xl text-sm font-medium text-slate-700 flex items-center justify-center space-x-1.5">
+                        <span>🌙 저녁</span>
+                    </button>
+                    <button onclick="selectMealTime(this, '야식')" class="meal-chip glass-btn py-3 px-3 rounded-xl text-sm font-medium text-slate-700 flex items-center justify-center space-x-1.5">
+                        <span>✨ 야식</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Hunger Level Slider -->
+            <div class="mb-8">
+                <div class="flex justify-between items-center mb-3">
+                    <label class="text-sm font-bold text-slate-700">
+                        <i class="fa-solid fa-gauge-high text-pink-500 mr-1.5"></i>배의 포화도 Gauge
+                    </label>
+                    <span id="hunger-pct" class="text-pink-600 font-extrabold text-lg">25%</span>
+                </div>
+
+                <div class="bg-white/60 p-5 rounded-2xl border border-pink-100 shadow-sm mb-3">
+                    <input type="range" id="hunger-slider" min="0" max="100" value="25" step="1" oninput="updateHungerDisplay(this.value)">
+                    
+                    <div id="hunger-badge-container" class="mt-4 p-3.5 rounded-xl bg-pink-50 border border-pink-200 text-center transition-all">
+                        <div id="hunger-status-title" class="font-bold text-pink-700 text-base mb-1">
+                            🥣 매우 배고픔
+                        </div>
+                        <p id="hunger-status-desc" class="text-xs text-slate-600">
+                            (배에서 꼬르륵 소리 남 / 본격적인 식사)
+                        </p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Navigation Buttons -->
+            <div class="flex space-x-3">
+                <button onclick="goToStep('cover')" class="w-1/3 py-3.5 rounded-xl glass-btn font-semibold text-slate-600">
+                    이전
+                </button>
+                <button onclick="goToStep(2)" class="w-2/3 py-3.5 rounded-xl bg-pink-500 hover:bg-pink-600 text-white font-bold shadow-md shadow-pink-500/20">
+                    다음 단계로
+                </button>
+            </div>
+        </section>
+
+        <section id="step-2" class="hidden">
+            <div class="mb-8">
+                <div class="flex justify-between text-xs font-semibold text-pink-600 mb-2">
+                    <span>STEP 02</span>
+                    <span>2 / 3</span>
+                </div>
+                <div class="w-full bg-pink-100 rounded-full h-2">
+                    <div class="bg-gradient-to-r from-pink-400 to-pink-600 h-2 rounded-full w-2/3 transition-all duration-300"></div>
+                </div>
+            </div>
+
+            <h2 class="text-2xl font-bold text-slate-800 mb-2">취향과 예산을 알려주세요</h2>
+            <p class="text-slate-500 text-sm mb-6">원하시는 느낌이나 피하고 싶은 재료를 선택 및 입력해주세요.</p>
+
+            <!-- Cravings Selection -->
+            <div class="mb-6">
+                <label class="block text-sm font-bold text-slate-700 mb-2">
+                    <i class="fa-solid fa-heart text-pink-500 mr-1.5"></i>오늘 땡기는 느낌 (복수 선택)
+                </label>
+                <div class="flex flex-wrap gap-2 mb-2.5" id="craving-chips-container">
+                    <button onclick="toggleCraving(this, '매콤한 것')" class="craving-chip glass-btn py-2 px-3 rounded-xl text-xs sm:text-sm font-medium text-slate-700">🌶️ 매콤한 것</button>
+                    <button onclick="toggleCraving(this, '기름진 것')" class="craving-chip glass-btn py-2 px-3 rounded-xl text-xs sm:text-sm font-medium text-slate-700">🥓 기름진 것</button>
+                    <button onclick="toggleCraving(this, '깔끔한 것')" class="craving-chip glass-btn py-2 px-3 rounded-xl text-xs sm:text-sm font-medium text-slate-700">🥗 깔끔한 것</button>
+                    <button onclick="toggleCraving(this, '국물/찌개')" class="craving-chip glass-btn py-2 px-3 rounded-xl text-xs sm:text-sm font-medium text-slate-700">🍲 국물/찌개</button>
+                    <button onclick="toggleCraving(this, '단짠단짠')" class="craving-chip glass-btn py-2 px-3 rounded-xl text-xs sm:text-sm font-medium text-slate-700">🍩 단짠단짠</button>
+                </div>
+                <div class="flex space-x-2">
+                    <input type="text" id="custom-craving-input" placeholder="+ 직접 입력 (예: 바삭한 것)" class="w-full px-4 py-2.5 rounded-xl text-xs sm:text-sm bg-white/70 border border-pink-200 focus:outline-none focus:border-pink-500">
+                    <button onclick="addCustomCraving()" class="px-4 py-2 bg-pink-100 hover:bg-pink-200 text-pink-700 text-xs font-bold rounded-xl whitespace-nowrap">추가</button>
+                </div>
+            </div>
+
+            <!-- Allergies / Dislikes -->
+            <div class="mb-6">
+                <label class="block text-sm font-bold text-slate-700 mb-2">
+                    <i class="fa-solid fa-ban text-pink-500 mr-1.5"></i>알러지 / 비선호 재료
+                </label>
+                <div class="flex flex-wrap gap-2 mb-2.5" id="allergy-chips-container">
+                    <button onclick="toggleAllergy(this, '견과류')" class="allergy-chip glass-btn py-2 px-3 rounded-xl text-xs font-medium text-slate-700">🥜 견과류</button>
+                    <button onclick="toggleAllergy(this, '갑각류')" class="allergy-chip glass-btn py-2 px-3 rounded-xl text-xs font-medium text-slate-700">🦐 갑각류</button>
+                    <button onclick="toggleAllergy(this, '유제품')" class="allergy-chip glass-btn py-2 px-3 rounded-xl text-xs font-medium text-slate-700">🥛 유제품</button>
+                    <button onclick="toggleAllergy(this, '돼지고기')" class="allergy-chip glass-btn py-2 px-3 rounded-xl text-xs font-medium text-slate-700">🐷 돼지고기</button>
+                </div>
+                <div class="flex space-x-2">
+                    <input type="text" id="custom-allergy-input" placeholder="+ 직접 입력 (예: 오이, 고수)" class="w-full px-4 py-2.5 rounded-xl text-xs sm:text-sm bg-white/70 border border-pink-200 focus:outline-none focus:border-pink-500">
+                    <button onclick="addCustomAllergy()" class="px-4 py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 text-xs font-bold rounded-xl whitespace-nowrap">추가</button>
+                </div>
+            </div>
+
+            <!-- Budget Selection -->
+            <div class="mb-8">
+                <label class="block text-sm font-bold text-slate-700 mb-3">
+                    <i class="fa-solid fa-wallet text-pink-500 mr-1.5"></i>1인당 희망 예산
+                </label>
+                <div class="grid grid-cols-2 sm:grid-cols-4 gap-2.5" id="budget-group">
+                    <button onclick="selectBudget(this, '1만원 미만')" class="budget-chip glass-btn py-3 px-3 rounded-xl text-sm font-medium text-slate-700">1만원 미만</button>
+                    <button onclick="selectBudget(this, '1~2만원')" class="budget-chip glass-btn py-3 px-3 rounded-xl text-sm font-medium text-slate-700 chip-selected">1~2만원</button>
+                    <button onclick="selectBudget(this, '2만원 이상')" class="budget-chip glass-btn py-3 px-3 rounded-xl text-sm font-medium text-slate-700">2만원 이상</button>
+                    <button onclick="selectBudget(this, '상관없음')" class="budget-chip glass-btn py-3 px-3 rounded-xl text-sm font-medium text-slate-700">상관없음</button>
+                </div>
+            </div>
+
+            <!-- Navigation Buttons -->
+            <div class="flex space-x-3">
+                <button onclick="goToStep(1)" class="w-1/3 py-3.5 rounded-xl glass-btn font-semibold text-slate-600">
+                    이전
+                </button>
+                <button onclick="goToStep(3)" class="w-2/3 py-3.5 rounded-xl bg-pink-500 hover:bg-pink-600 text-white font-bold shadow-md shadow-pink-500/20">
+                    다음 단계로
+                </button>
+            </div>
+        </section>
+
+        <section id="step-3" class="hidden">
+            <div class="mb-8">
+                <div class="flex justify-between text-xs font-semibold text-pink-600 mb-2">
+                    <span>STEP 03</span>
+                    <span>3 / 3</span>
+                </div>
+                <div class="w-full bg-pink-100 rounded-full h-2">
+                    <div class="bg-gradient-to-r from-pink-400 to-pink-600 h-2 rounded-full w-full transition-all duration-300"></div>
+                </div>
+            </div>
+
+            <h2 class="text-2xl font-bold text-slate-800 mb-2">식당 위치 및 이동 방법을 정해주세요</h2>
+            <p class="text-slate-500 text-sm mb-6">어떻게 식사를 하실 예정인가요?</p>
+
+            <!-- Distance Options -->
+            <div class="space-y-3 mb-8" id="distance-group">
+                <button onclick="selectDistance(this, '배달')" class="dist-chip w-full glass-btn p-4 rounded-xl text-sm font-medium text-slate-700 flex items-center justify-between chip-selected">
+                    <span>🛵 집/회사에서 편하게 배달</span>
+                    <span class="text-xs bg-pink-100 text-pink-600 px-2.5 py-1 rounded-md">배달 앱</span>
+                </button>
+                <button onclick="selectDistance(this, '도보 5분')" class="dist-chip w-full glass-btn p-4 rounded-xl text-sm font-medium text-slate-700 flex items-center justify-between">
+                    <span>🏠 바로 집 앞 / 근처 식당</span>
+                    <span class="text-xs bg-slate-100 text-slate-600 px-2.5 py-1 rounded-md">도보 5분</span>
+                </button>
+                <button onclick="selectDistance(this, '도보 15분')" class="dist-chip w-full glass-btn p-4 rounded-xl text-sm font-medium text-slate-700 flex items-center justify-between">
+                    <span>🚶 산책 겸 걸어서 방문</span>
+                    <span class="text-xs bg-slate-100 text-slate-600 px-2.5 py-1 rounded-md">도보 15분 이내</span>
+                </button>
+                <button onclick="selectDistance(this, '차로 이동')" class="dist-chip w-full glass-btn p-4 rounded-xl text-sm font-medium text-slate-700 flex items-center justify-between">
+                    <span>🚗 차 타고 주요 상권/맛집 이동</span>
+                    <span class="text-xs bg-slate-100 text-slate-600 px-2.5 py-1 rounded-md">거리 상관없음</span>
+                </button>
+            </div>
+
+            <!-- Navigation Buttons -->
+            <div class="flex space-x-3">
+                <button onclick="goToStep(2)" class="w-1/3 py-3.5 rounded-xl glass-btn font-semibold text-slate-600">
+                    이전
+                </button>
+                <button onclick="startAnalysis()" class="w-2/3 py-3.5 rounded-xl bg-gradient-to-r from-pink-500 to-rose-500 hover:from-pink-600 hover:to-rose-600 text-white font-bold shadow-lg shadow-pink-500/30 flex items-center justify-center space-x-2">
+                    <i class="fa-solid fa-wand-magic-sparkles"></i>
+                    <span>AI 메뉴 추천받기</span>
+                </button>
+            </div>
+        </section>
+
+        <section id="step-loading" class="hidden py-12 text-center flex flex-col items-center">
+            <div class="relative w-40 h-40 mb-8 flex items-center justify-center">
+                <div class="absolute inset-0 rounded-full border-2 border-pink-300/40 animate-ping opacity-75"></div>
+                <div class="absolute inset-2 rounded-full border border-pink-400/50 bg-pink-50/50 backdrop-blur-sm"></div>
+                <div class="absolute inset-8 rounded-full border border-pink-300"></div>
+                
+                <div class="absolute w-20 h-20 top-0 left-0 overflow-hidden">
+                    <div class="w-full h-full bg-gradient-to-br from-pink-500/40 to-transparent radar-line rounded-tl-full"></div>
+                </div>
+
+                <i class="fa-solid fa-utensils text-3xl text-pink-500 relative z-10 animate-bounce"></i>
+            </div>
+
+            <h3 class="text-xl font-bold text-slate-800 mb-2">AI 맞춤 분석 진행 중...</h3>
+            <p id="analysis-step-text" class="text-pink-600 text-sm font-semibold mb-6">
+                포화도 및 식사 조건 계산 중...
+            </p>
+
+            <div class="w-48 bg-pink-100 rounded-full h-1.5 overflow-hidden">
+                <div id="loading-bar" class="bg-pink-500 h-full w-0 transition-all duration-300"></div>
+            </div>
+        </section>
+
+        <section id="step-results" class="hidden">
+            <div class="text-center mb-6">
+                <span class="inline-block px-3.5 py-1 bg-pink-100 text-pink-600 rounded-full text-xs font-bold mb-2">
+                    🎉 분석 완료
+                </span>
+                <h2 class="text-2xl font-black text-slate-800">오늘의 추천 메뉴 TOP 3</h2>
+                <p class="text-slate-500 text-xs sm:text-sm mt-1">고민 해결! 가장 잘 어울리는 식사 메뉴입니다.</p>
+            </div>
+
+            <div id="results-container" class="space-y-4 mb-8">
+                <!-- Dynamic recommended cards inserted here -->
+            </div>
+
+            <button onclick="goToStep(1)" class="w-full py-3.5 rounded-2xl glass-btn font-bold text-slate-700 hover:text-pink-600 flex items-center justify-center space-x-2 border border-pink-200">
+                <i class="fa-solid fa-rotate-right"></i>
+                <span>조건 수정하고 다시 추천받기</span>
+            </button>
+        </section>
+
+    </main>
+
+    <script>
+        // Preference State
+        const userPrefs = {
+            mealTime: '점심',
+            hungerPct: 25,
+            budget: '1~2만원',
+            cravings: [],
+            allergies: [],
+            distance: '배달'
+        };
+
+        // Menu Dataset
+        const menuDatabase = [
+            {
+                name: '제육볶음 정식',
+                category: '한식',
+                price: '1~2만원',
+                cravings: ['매콤한 것', '단짠단짠', '기름진 것'],
+                allergies: ['돼지고기'],
+                hungerMin: 16, hungerMax: 80,
+                desc: '매콤달콤한 양념에 볶아낸 최고 호불호 없는 한식 명작!'
+            },
+            {
+                name: '김치찌개 / 된장찌개',
+                category: '한식',
+                price: '1만원 미만',
+                cravings: ['국물/찌개', '깔끔한 것'],
+                allergies: ['돼지고기'],
+                hungerMin: 16, hungerMax: 70,
+                desc: '얼큰한 국물과 칼칼함으로 속을 든든하게 채워주는 한 끼.'
+            },
+            {
+                name: '돈까스 (경양식/일식)',
+                category: '양식/일식',
+                price: '1~2만원',
+                cravings: ['기름진 것', '단짠단짠'],
+                allergies: ['돼지고기', '유제품'],
+                hungerMin: 16, hungerMax: 80,
+                desc: '바삭바삭한 튀김옷 속 육즙 가득한 수제 돈까스.'
+            },
+            {
+                name: '마라탕 / 마라샹궈',
+                category: '중식',
+                price: '1~2만원',
+                cravings: ['매콤한 것', '기름진 것'],
+                allergies: ['견과류', '갑각류'],
+                hungerMin: 16, hungerMax: 80,
+                desc: '얼얼하고 알싸한 국물이 중독적인 인기 메뉴.'
+            },
+            {
+                name: '신선한 연어/모듬 초밥',
+                category: '일식',
+                price: '2만원 이상',
+                cravings: ['깔끔한 것'],
+                allergies: ['갑각류'],
+                hungerMin: 16, hungerMax: 65,
+                desc: '신선한 횟감과 깔끔한 샤리의 완벽한 조화.'
+            },
+            {
+                name: '아보카도 샐러드 & 포케',
+                category: '양식/건강식',
+                price: '1~2만원',
+                cravings: ['깔끔한 것'],
+                allergies: ['견과류'],
+                hungerMin: 59, hungerMax: 100,
+                desc: '신선한 야채와 고단백 메인 재료의 프레시한 메뉴.'
+            },
+            {
+                name: '삼겹살 / 목살 구이',
+                category: '한식',
+                price: '2만원 이상',
+                cravings: ['기름진 것', '단짠단짠'],
+                allergies: ['돼지고기'],
+                hungerMin: 0, hungerMax: 40,
+                desc: '공복을 단번에 해결해줄 지글지글 고소한 구이.'
+            },
+            {
+                name: '떡볶이 & 모듬 튀김',
+                category: '분식',
+                price: '1만원 미만',
+                cravings: ['매콤한 것', '단짠단짠'],
+                allergies: ['유제품'],
+                hungerMin: 41, hungerMax: 80,
+                desc: '매콤달콤한 떡볶이와 바삭한 튀김의 환상 궁합.'
+            },
+            {
+                name: '디저트 쿠키 & 아메리카노',
+                category: '카페/디저트',
+                price: '1만원 미만',
+                cravings: ['단짠단짠', '깔끔한 것'],
+                allergies: ['유제품', '견과류'],
+                hungerMin: 81, hungerMax: 100,
+                desc: '배부르거나 더부룩할 때 속 부담 없이 즐기는 디저트.'
+            }
+        ];
+
+        // Toast Helper
+        function showToast(message, iconClass = 'fa-circle-check') {
+            const toast = document.getElementById('toast');
+            const toastMsg = document.getElementById('toast-msg');
+            const toastIcon = document.getElementById('toast-icon');
+
+            toastMsg.innerText = message;
+            toastIcon.className = `fa-solid ${iconClass} text-pink-400 text-lg`;
+
+            toast.classList.remove('-translate-y-20', 'opacity-0');
+            toast.classList.add('translate-y-0', 'opacity-100');
+
+            setTimeout(() => {
+                toast.classList.remove('translate-y-0', 'opacity-100');
+                toast.classList.add('-translate-y-20', 'opacity-0');
+            }, 3000);
+        }
+
+        // Navigation
+        function goToStep(stepNumber) {
+            const steps = ['cover', '1', '2', '3', 'loading', 'results'];
+            steps.forEach(s => {
+                const el = document.getElementById(`step-${s}`);
+                if (el) el.classList.add('hidden');
+            });
+
+            const target = document.getElementById(`step-${stepNumber}`);
+            if (target) {
+                target.classList.remove('hidden');
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+            }
+        }
+
+        // STEP 1 Handlers
+        function selectMealTime(btn, val) {
+            document.querySelectorAll('#meal-time-group .meal-chip').forEach(b => b.classList.remove('chip-selected'));
+            btn.classList.add('chip-selected');
+            userPrefs.mealTime = val;
+        }
+
+        function updateHungerDisplay(val) {
+            const p = parseInt(val);
+            userPrefs.hungerPct = p;
+            document.getElementById('hunger-pct').innerText = `${p}%`;
+
+            const titleEl = document.getElementById('hunger-status-title');
+            const descEl = document.getElementById('hunger-status-desc');
+
+            if (p <= 15) {
+                titleEl.innerText = "🚨 극도의 공복";
+                descEl.innerText = "(칼로리 시급!)";
+            } else if (p <= 40) {
+                titleEl.innerText = "🥣 매우 배고픔";
+                descEl.innerText = "(본격적인 식사)";
+            } else if (p <= 58) {
+                titleEl.innerText = "🍱 배고픔";
+                descEl.innerText = "(든든한 한 끼)";
+            } else if (p <= 80) {
+                titleEl.innerText = "🥪 출출함/입심심";
+                descEl.innerText = "(가벼운 식사)";
+            } else {
+                titleEl.innerText = "☕ 배부름/더부룩";
+                descEl.innerText = "(디저트 위주)";
+            }
+        }
+
+        // STEP 2 Handlers
+        function selectBudget(btn, val) {
+            document.querySelectorAll('#budget-group .budget-chip').forEach(b => b.classList.remove('chip-selected'));
+            btn.classList.add('chip-selected');
+            userPrefs.budget = val;
+        }
+
+        function toggleCraving(btn, val) {
+            if (userPrefs.cravings.includes(val)) {
+                userPrefs.cravings = userPrefs.cravings.filter(c => c !== val);
+                btn.classList.remove('chip-selected');
+            } else {
+                userPrefs.cravings.push(val);
+                btn.classList.add('chip-selected');
+            }
+        }
+
+        function addCustomCraving() {
+            const input = document.getElementById('custom-craving-input');
+            const text = input.value.trim();
+            if (!text) return;
+
+            const container = document.getElementById('craving-chips-container');
+            const btn = document.createElement('button');
+            btn.className = "craving-chip glass-btn py-2 px-3 rounded-xl text-xs sm:text-sm font-medium text-slate-700 chip-selected";
+            btn.innerText = `✨ ${text}`;
+            btn.onclick = function() { toggleCraving(this, text); };
+
+            container.appendChild(btn);
+            userPrefs.cravings.push(text);
+            input.value = '';
+            showToast(`'${text}' 취향 태그가 추가되었습니다.`);
+        }
+
+        function toggleAllergy(btn, val) {
+            if (userPrefs.allergies.includes(val)) {
+                userPrefs.allergies = userPrefs.allergies.filter(a => a !== val);
+                btn.classList.remove('chip-selected');
+            } else {
+                userPrefs.allergies.push(val);
+                btn.classList.add('chip-selected');
+            }
+        }
+
+        function addCustomAllergy() {
+            const input = document.getElementById('custom-allergy-input');
+            const text = input.value.trim();
+            if (!text) return;
+
+            const container = document.getElementById('allergy-chips-container');
+            const btn = document.createElement('button');
+            btn.className = "allergy-chip glass-btn py-2 px-3 rounded-xl text-xs font-medium text-slate-700 chip-selected";
+            btn.innerText = `⛔ ${text}`;
+            btn.onclick = function() { toggleAllergy(this, text); };
+
+            container.appendChild(btn);
+            userPrefs.allergies.push(text);
+            input.value = '';
+            showToast(`'${text}' 제외 재료가 추가되었습니다.`);
+        }
+
+        // STEP 3 Handler
+        function selectDistance(btn, val) {
+            document.querySelectorAll('#distance-group .dist-chip').forEach(b => b.classList.remove('chip-selected'));
+            btn.classList.add('chip-selected');
+            userPrefs.distance = val;
+        }
+
+        // Analysis Execution
+        function startAnalysis() {
+            goToStep('loading');
+
+            const loadingBar = document.getElementById('loading-bar');
+            const stepText = document.getElementById('analysis-step-text');
+            
+            loadingBar.style.width = '0%';
+
+            const messages = [
+                "포화도 및 시간대 조건 계산 중...",
+                "입맛 태그 및 알러지 항목 제외 중...",
+                "위치와 예산에 적합한 데이터 매칭 중...",
+                "최적의 알고리즘 추천 완료!"
+            ];
+
+            let progress = 0;
+            let idx = 0;
+
+            const interval = setInterval(() => {
+                progress += 25;
+                loadingBar.style.width = `${progress}%`;
+                if (idx < messages.length) {
+                    stepText.innerText = messages[idx];
+                    idx++;
+                }
+
+                if (progress >= 100) {
+                    clearInterval(interval);
+                    setTimeout(() => {
+                        renderResults();
+                        goToStep('results');
+                    }, 400);
+                }
+            }, 400);
+        }
+
+        // Calculate Scores & Render Top 3
+        function renderResults() {
+            const container = document.getElementById('results-container');
+            container.innerHTML = '';
+
+            const scored = menuDatabase.map(item => {
+                let score = 75;
+
+                // Penalty for Allergies
+                const hasAllergy = item.allergies.some(a => userPrefs.allergies.includes(a));
+                if (hasAllergy) {
+                    score -= 50;
+                }
+
+                // Cravings Match
+                const cravingMatches = item.cravings.filter(c => userPrefs.cravings.includes(c)).length;
+                score += cravingMatches * 10;
+
+                // Hunger Match
+                if (userPrefs.hungerPct >= item.hungerMin && userPrefs.hungerPct <= item.hungerMax) {
+                    score += 15;
+                }
+
+                score += Math.floor(Math.random() * 5);
+                const finalScore = Math.min(99, Math.max(68, score));
+
+                return { ...item, score: finalScore };
+            });
+
+            scored.sort((a, b) => b.score - a.score);
+            const top3 = scored.slice(0, 3);
+
+            top3.forEach((item, index) => {
+                const badgeColor = index === 0 ? 'bg-pink-500 text-white' : 'bg-pink-100 text-pink-600';
+                const card = document.createElement('div');
+                card.className = "bg-white/80 rounded-2xl p-5 border border-pink-100 shadow-sm transition-all hover:shadow-md";
+
+                card.innerHTML = `
+                    <div class="flex justify-between items-start mb-2">
+                        <div class="flex items-center space-x-2">
+                            <span class="w-6 h-6 rounded-full ${badgeColor} text-xs font-bold flex items-center justify-center">
+                                ${index + 1}
+                            </span>
+                            <h3 class="font-bold text-lg text-slate-800">${item.name}</h3>
+                            <span class="text-xs px-2 py-0.5 rounded bg-slate-100 text-slate-500 font-medium">${item.category}</span>
+                        </div>
+                        <span class="text-pink-600 font-black text-lg">${item.score}% <span class="text-xs font-normal text-slate-400">일치</span></span>
+                    </div>
+
+                    <p class="text-slate-600 text-xs sm:text-sm mb-3 leading-relaxed">${item.desc}</p>
+
+                    <div class="flex flex-wrap gap-1.5 mb-4">
+                        ${item.cravings.map(c => `<span class="text-[11px] bg-pink-50 text-pink-600 px-2 py-0.5 rounded-md border border-pink-100">#${c}</span>`).join('')}
+                        <span class="text-[11px] bg-slate-50 text-slate-500 px-2 py-0.5 rounded-md border border-slate-100">💰 ${item.price}</span>
+                    </div>
+
+                    <div class="grid grid-cols-3 gap-2 pt-3 border-t border-slate-100">
+                        <a href="https://map.naver.com/v5/search/${encodeURIComponent(item.name)}" target="_blank" class="py-2 px-1 text-center bg-green-50 hover:bg-green-100 text-green-700 rounded-xl text-xs font-bold transition flex items-center justify-center space-x-1">
+                            <i class="fa-solid fa-map-location-dot"></i>
+                            <span>네이버 지도</span>
+                        </a>
+                        <a href="https://map.kakao.com/link/search/${encodeURIComponent(item.name)}" target="_blank" class="py-2 px-1 text-center bg-yellow-50 hover:bg-yellow-100 text-yellow-800 rounded-xl text-xs font-bold transition flex items-center justify-center space-x-1">
+                            <i class="fa-solid fa-location-arrow"></i>
+                            <span>카카오맵</span>
+                        </a>
+                        <a href="https://www.baemin.com" target="_blank" class="py-2 px-1 text-center bg-teal-50 hover:bg-teal-100 text-teal-700 rounded-xl text-xs font-bold transition flex items-center justify-center space-x-1">
+                            <i class="fa-solid fa-motorcycle"></i>
+                            <span>배달의민족</span>
+                        </a>
+                    </div>
+                `;
+                container.appendChild(card);
+            });
+        }
+
+        window.onload = function() {
+            updateHungerDisplay(25);
+        };
+    </script>
+</body>
+</html>
